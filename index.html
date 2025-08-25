@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Criptografia - César e RSA</title>
+<style>
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #f5f7fa;
+    color: #222;
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+  }
+  h1 {
+    color: #2c3e50;
+  }
+  main {
+    background: white;
+    max-width: 700px;
+    width: 100%;
+    padding: 25px 30px;
+    border-radius: 10px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+  }
+  label, select, input, textarea {
+    width: 100%;
+    margin-top: 10px;
+  }
+  select, input, textarea {
+    padding: 10px;
+    border-radius: 6px;
+    border: 1.8px solid #ccc;
+    font-size: 1rem;
+    resize: vertical;
+  }
+  textarea {
+    min-height: 100px;
+  }
+  button {
+    margin-top: 15px;
+    width: 49%;
+    padding: 12px;
+    font-weight: 600;
+    border-radius: 7px;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.3s;
+  }
+  #btnCifrar {
+    background-color: #27ae60;
+    color: white;
+  }
+  #btnCifrar:hover {
+    background-color: #219150;
+  }
+  #btnDecifrar {
+    background-color: #c0392b;
+    color: white;
+  }
+  #btnDecifrar:hover {
+    background-color: #992d22;
+  }
+  .input-group {
+    margin-bottom: 15px;
+  }
+  .nota {
+    font-size: 0.9rem;
+    color: #555;
+    margin-top: 5px;
+  }
+ .resultado {
+  margin-top: 20px;
+  background: #ecf0f1;
+  padding: 15px;
+  border-radius: 8px;
+  white-space: pre-wrap;  
+  word-wrap: break-word; 
+  overflow-wrap: break-word;
+  font-family: monospace;
+  max-width: 100%;
+  box-sizing: border-box;
+  word-break: break-word;  
+}
+
+  .explicacao {
+    margin-top: 20px;
+    padding: 15px;
+    background: #d6eaf8;
+    border-left: 5px solid #3498db;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    color: #1b4f72;
+  }
+  footer {
+    margin-top: 40px;
+    font-size: 0.85rem;
+    color: #888;
+  }
+</style>
+</head>
+<body>
+  <h1>Criptografia Interativa</h1>
+  <main>
+    <form id="formCrypto">
+      <div class="input-group">
+        <label for="metodo">Escolha o método de criptografia:</label>
+        <select id="metodo" required>
+          <option value="" disabled selected>-- Selecione --</option>
+          <option value="cesar">Cifra de César (Chave numérica)</option>
+          <option value="rsa">Criptografia Assimétrica (RSA)</option>
+        </select>
+      </div>
+
+      <div class="input-group" id="chaveGroup" style="display:none;">
+        <label for="chave">Chave (número para César):</label>
+        <input type="number" id="chave" min="1" max="25" placeholder="Exemplo: 3" />
+      </div>
+
+      <div class="input-group">
+        <label for="texto">Texto para cifrar/decifrar:</label>
+        <textarea id="texto" placeholder="Digite seu texto aqui..." required></textarea>
+      </div>
+
+      <div style="display:flex; justify-content: space-between;">
+        <button type="button" id="btnCifrar">Cifrar</button>
+        <button type="button" id="btnDecifrar">Decifrar</button>
+      </div>
+    </form>
+
+    <div class="resultado" id="resultado" style="display:none;"></div>
+
+    <div class="explicacao" id="explicacao"></div>
+  </main>
+
+  <footer>Elaborado na Aula de Auditoria e Segurança</footer>
+
+<script>
+  const metodoSelect = document.getElementById('metodo');
+  const chaveGroup = document.getElementById('chaveGroup');
+  const chaveInput = document.getElementById('chave');
+  const textoInput = document.getElementById('texto');
+  const resultadoDiv = document.getElementById('resultado');
+  const explicacaoDiv = document.getElementById('explicacao');
+  const btnCifrar = document.getElementById('btnCifrar');
+  const btnDecifrar = document.getElementById('btnDecifrar');
+
+  metodoSelect.addEventListener('change', () => {
+    if (metodoSelect.value === 'cesar') {
+      chaveGroup.style.display = 'block';
+      chaveInput.required = true;
+      explicacaoDiv.innerHTML = `
+        <b>Cifra de César:</b> Desloca cada letra do texto um número fixo de posições no alfabeto.<br>
+        Exemplo: com chave 3, 'A' vira 'D', 'B' vira 'E', etc.<br><br>
+      `;
+    } else if (metodoSelect.value === 'rsa') {
+      chaveGroup.style.display = 'none';
+      chaveInput.required = false;
+      explicacaoDiv.innerHTML = `
+        <b>Criptografia Assimétrica (RSA):</b><br>
+        Utiliza par de chaves: pública para cifrar, privada para decifrar.<br>
+        Ideal para comunicação segura e troca de chaves.<br><br>
+      `;
+    } else {
+      chaveGroup.style.display = 'none';
+      chaveInput.required = false;
+      explicacaoDiv.innerHTML = '';
+    }
+    resultadoDiv.style.display = 'none';
+    resultadoDiv.textContent = '';
+  });
+
+  function cifraCesar(texto, chave, cifrar = true) {
+    const desloc = cifrar ? chave : (26 - chave) % 26;
+    return texto.split('').map(c => {
+      const code = c.charCodeAt(0);
+      if (code >= 65 && code <= 90)
+        return String.fromCharCode(((code - 65 + desloc) % 26) + 65);
+      else if (code >= 97 && code <= 122)
+        return String.fromCharCode(((code - 97 + desloc) % 26) + 97);
+      else
+        return c;
+    }).join('');
+  }
+
+  async function gerarChavesRSA() {
+    return await window.crypto.subtle.generateKey(
+      { name: "RSA-OAEP", modulusLength: 2048, publicExponent: new Uint8Array([1,0,1]), hash: "SHA-256" },
+      true,
+      ["encrypt", "decrypt"]
+    );
+  }
+  async function cifrarRSA(texto, chavePublica) {
+    const encoder = new TextEncoder();
+    const dados = encoder.encode(texto);
+    const cifrado = await window.crypto.subtle.encrypt({name: "RSA-OAEP"}, chavePublica, dados);
+    return btoa(String.fromCharCode(...new Uint8Array(cifrado)));
+  }
+  async function decifrarRSA(textoCifrado, chavePrivada) {
+    const dados = Uint8Array.from(atob(textoCifrado), c => c.charCodeAt(0));
+    const decifrado = await window.crypto.subtle.decrypt({name: "RSA-OAEP"}, chavePrivada, dados);
+    const decoder = new TextDecoder();
+    return decoder.decode(decifrado);
+  }
+
+  let chavesRSA = null;
+
+  btnCifrar.addEventListener('click', async () => {
+    const metodo = metodoSelect.value;
+    const texto = textoInput.value.trim();
+    const chave = parseInt(chaveInput.value);
+
+    if (!metodo) {
+      alert('Selecione um método de criptografia');
+      return;
+    }
+    if (!texto) {
+      alert('Digite o texto');
+      return;
+    }
+
+    if (metodo === 'cesar') {
+      if (isNaN(chave) || chave < 1 || chave > 25) {
+        alert('Chave para César deve ser um número entre 1 e 25');
+        return;
+      }
+      const cifrado = cifraCesar(texto, chave, true);
+      resultadoDiv.style.display = 'block';
+      resultadoDiv.textContent = cifrado;
+
+    } else if (metodo === 'rsa') {
+      try {
+        if (!chavesRSA) {
+          chavesRSA = await gerarChavesRSA();
+        }
+        const cifrado = await cifrarRSA(texto, chavesRSA.publicKey);
+        resultadoDiv.style.display = 'block';
+        resultadoDiv.textContent = cifrado;
+      } catch (e) {
+        resultadoDiv.style.display = 'block';
+        resultadoDiv.textContent = 'Erro na criptografia RSA: ' + e.message;
+      }
+    }
+  });
+
+  btnDecifrar.addEventListener('click', async () => {
+    const metodo = metodoSelect.value;
+    const texto = textoInput.value.trim();
+
+    if (!metodo) {
+      alert('Selecione um método de criptografia');
+      return;
+    }
+    if (!texto) {
+      alert('Digite o texto');
+      return;
+    }
+
+    if (metodo === 'cesar') {
+      const chave = parseInt(chaveInput.value);
+      if (isNaN(chave) || chave < 1 || chave > 25) {
+        alert('Chave para César deve ser um número entre 1 e 25');
+        return;
+      }
+      const decifrado = cifraCesar(texto, chave, false);
+      resultadoDiv.style.display = 'block';
+      resultadoDiv.textContent = decifrado;
+
+    } else if (metodo === 'rsa') {
+      try {
+        if (!chavesRSA) {
+          alert('Primeiro cifre um texto para gerar as chaves RSA.');
+          return;
+        }
+        const decifrado = await decifrarRSA(texto, chavesRSA.privateKey);
+        resultadoDiv.style.display = 'block';
+        resultadoDiv.textContent = decifrado;
+      } catch (e) {
+        resultadoDiv.style.display = 'block';
+        resultadoDiv.textContent = 'Erro na descriptografia RSA: ' + e.message;
+      }
+    }
+  });
+</script>
+</body>
+</html>
